@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f1ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="待辦事項">
+<title>待辦事項</title>
+<style>
+  :root {
+    --bg: #f3f1ec; --card: #ffffff; --text: #23262b; --muted: #8b8f96; --line: #ebe8e2;
+    --accent: #3d7a5f; --accent-soft: #e4efe9; --hover: #f7f5f1; --danger: #c24f45;
+    --shadow: 0 1px 2px rgba(40,35,25,.05), 0 8px 24px rgba(40,35,25,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17191c; --card: #212428; --text: #e8e9eb; --muted: #8d9299; --line: #2e3237;
+      --accent: #6cbf97; --accent-soft: #24362d; --hover: #282c31; --danger: #e5776c;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.5; -webkit-text-size-adjust: 100%;
+  }
+  [hidden] { display: none !important; }
+  .wrap {
+    max-width: 620px; margin: 0 auto; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    padding: calc(28px + env(safe-area-inset-top)) 16px 0;
+  }
+
+  header { margin-bottom: 18px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .today { font-size: 13px; color: var(--muted); letter-spacing: .05em; }
+  .me { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); min-width: 0; }
+  .me img { width: 24px; height: 24px; border-radius: 50%; flex: none; }
+  .me span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
+  h1 { font-size: 26px; margin: 2px 0 12px; font-weight: 700; }
+  .progress { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+  .track { flex: 1; height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); border-radius: 99px; transform-origin: left; transform: scaleX(0); transition: transform .35s ease; }
+
+  .status { font-size: 13px; color: var(--muted); background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+  .status.err { color: var(--danger); }
+
+  /* 登入畫面 */
+  .login {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 14px; padding-bottom: 15vh;
+  }
+  .login .logo {
+    width: 64px; height: 64px; border-radius: 18px; background: var(--accent); color: #fff;
+    display: grid; place-items: center; box-shadow: var(--shadow);
+  }
+  .login h2 { margin: 6px 0 0; font-size: 24px; }
+  .login p { margin: 0; color: var(--muted); font-size: 14px; }
+  .gbtn {
+    margin-top: 10px; display: inline-flex; align-items: center; gap: 10px;
+    background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 22px; font: inherit; font-size: 16px; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .gbtn:hover { border-color: var(--muted); }
+  .gbtn:disabled { opacity: .6; cursor: default; }
+
+  main { flex: 1; }
+  .card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 8px 8px 14px; border-top: 1px solid var(--line);
+    animation: in .2s ease;
+  }
+  li:first-child { border-top: 0; }
+  @keyframes in { from { opacity: 0; transform: translateY(4px); } }
+
+  .chk {
+    width: 24px; height: 24px; flex: none; border-radius: 50%;
+    border: 2px solid var(--muted); background: none; cursor: pointer; padding: 0;
+    display: grid; place-items: center; transition: background .15s, border-color .15s;
+  }
+  .chk:hover { border-color: var(--accent); }
+  .chk svg { width: 14px; height: 14px; opacity: 0; transform: scale(.5); transition: .15s; }
+  li.done .chk { background: var(--accent); border-color: var(--accent); }
+  li.done .chk svg { opacity: 1; transform: none; }
+
+  .text {
+    flex: 1; min-width: 0; padding: 8px 6px; border-radius: 8px; cursor: text;
+    word-break: break-word; white-space: pre-wrap;
+  }
+  .text:hover { background: var(--hover); }
+  li.done .text { color: var(--muted); text-decoration: line-through; }
+  .edit {
+    flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--card);
+    padding: 7px 6px; border: 1.5px solid var(--accent); border-radius: 8px; outline: none;
+  }
+  .date { font-size: 12px; color: var(--muted); flex: none; }
+  .del {
+    border: 0; background: none; color: var(--muted); cursor: pointer; flex: none;
+    width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+    opacity: .5; transition: opacity .15s, background .15s, color .15s;
+  }
+  li:hover .del { opacity: 1; }
+  .del:hover { color: var(--danger); background: var(--hover); }
+  @media (hover: none) { .del { opacity: .7; } }
+
+  .empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14px; }
+
+  .done-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 22px 4px 8px; font-size: 13px; color: var(--muted);
+  }
+  .linkbtn { border: 0; background: none; font: inherit; color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+  .linkbtn:hover { color: var(--text); background: var(--card); }
+  .linkbtn.danger:hover { color: var(--danger); }
+  .toggle svg { width: 12px; height: 12px; vertical-align: -1px; transition: transform .15s; }
+  .toggle.closed svg { transform: rotate(-90deg); }
+
+  .composer {
+    position: sticky; bottom: 0; margin: 20px -16px 0;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, transparent, var(--bg) 14px);
+  }
+  .composer form {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
+    padding: 6px 6px 6px 16px; border: 1.5px solid transparent; transition: border-color .15s;
+  }
+  .composer form:focus-within { border-color: var(--accent); }
+  #newItem {
+    flex: 1; min-width: 0; border: 0; outline: none; background: none; color: var(--text);
+    font: inherit; font-size: 16px; padding: 8px 0;
+  }
+  #newItem::placeholder { color: var(--muted); }
+  .add {
+    flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; cursor: pointer;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+  }
+  .add:disabled { background: var(--line); color: var(--muted); cursor: default; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #2b2e33; color: #fff; padding: 10px 8px 10px 16px; border-radius: 10px;
+    font-size: 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.2);
+    max-width: calc(100% - 32px);
+  }
+  .toast button { border: 0; background: none; color: #9fe0bf; font: inherit; font-weight: 700; cursor: pointer; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 登入畫面 -->
+  <section class="login" id="loginView" hidden>
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
+    </div>
+    <h2>待辦事項</h2>
+    <p>登入後，電腦和手機會自動同步</p>
+    <button class="gbtn" id="loginBtn">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>
+      使用 Google 帳號登入
+    </button>
+    <div class="status err" id="loginErr" hidden></div>
+  </section>
+
+  <!-- 主畫面 -->
+  <section id="appView" hidden style="display:contents">
+    <header>
+      <div class="top">
+        <div class="today" id="today"></div>
+        <div class="me">
+          <img id="avatar" alt="" referrerpolicy="no-referrer" hidden>
+          <span id="userName"></span>
+          <button class="linkbtn" id="logoutBtn">登出</button>
+        </div>
+      </div>
+      <h1>待辦事項</h1>
+      <div class="progress">
+        <div class="track"><div class="fill" id="fill"></div></div>
+        <span id="count">0 / 0</span>
+      </div>
+    </header>
+
+    <div class="status" id="status" hidden></div>
+
+    <main>
+      <div class="card">
+        <ul id="active"></ul>
+        <div class="empty" id="empty">讀取中…</div>
+      </div>
+
+      <div id="doneBlock" hidden>
+        <div class="done-head">
+          <button class="linkbtn toggle" id="toggleDone">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4l4 4 4-4"/></svg>
+            已完成 <span id="doneCount"></span>
+          </button>
+          <button class="linkbtn danger" id="clearDone">清除已完成</button>
+        </div>
+        <div class="card"><ul id="done"></ul></div>
+      </div>
+    </main>
+
+    <div class="composer">
+      <form id="form" autocomplete="off">
+        <input id="newItem" placeholder="新增待辦事項" enterkeyhint="send">
+        <button class="add" id="addBtn" type="submit" title="新增" disabled>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10 4v12M4 10h12"/></svg>
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <div class="status" id="bootStatus">載入中…</div>
+</div>
+
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastBtn">復原</button></div>
+
+<script type="module">
+/* ====== Firebase 設定：把 Firebase 主控台給的設定貼在這裡 ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDEuaZs2atpWuDi_TK2bZz_Ar1Y3GKqY6A",
+  authDomain: "todo-333a8.firebaseapp.com",
+  projectId: "todo-333a8",
+  storageBucket: "todo-333a8.firebasestorage.app",
+  messagingSenderId: "805960534756",
+  appId: "1:805960534756:web:76047016d179e458327af1"
+};
+/* ============================================================== */
+
+const $ = id => document.getElementById(id);
+const WK = ['日','一','二','三','四','五','六'];
+const CHECK = '<svg viewBox="0 0 14 14" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5l2.6 2.6L11 4.5"/></svg>';
+const TRASH = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/></svg>';
+
+let items = [];        // {id, text, done, created, updated}
+let store = null;
+let unsubscribe = null;
+let editingId = null;  // 編輯中時暫停重繪，避免同步更新把輸入框洗掉
+let showDone = true;
+
+function setStatus(el, t, err) {
+  el.hidden = !t;
+  el.textContent = t || '';
+  el.classList.toggle('err', !!err);
+}
+
+if (!firebaseConfig.apiKey) {
+  setStatus($('bootStatus'), '尚未設定 Firebase：請把 Firebase 的設定貼到 index.html 最下方的 firebaseConfig。', true);
+  throw new Error('firebaseConfig 未設定');
+}
+
+const V = '10.12.2';
+const { initializeApp } = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut }
+  = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`);
+const { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot }
+  = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+// 資料暫存在手機/電腦上，沒網路也能看、恢復連線後自動上傳
+const fs = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+
+function cloudStore(uid) {
+  const col = collection(fs, 'users', uid, 'todos');
+  return {
+    subscribe(f, onErr) {
+      return onSnapshot(col, snap => f(snap.docs.map(d => ({ id: d.id, ...d.data() }))), onErr);
+    },
+    add: data => addDoc(col, data),
+    update: (id, patch) => updateDoc(doc(col, id), patch),
+    set: (id, data) => setDoc(doc(col, id), data),
+    remove: id => deleteDoc(doc(col, id)),
+  };
+}
+
+/* ---------- 登入 ---------- */
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+function loginErrMsg(e) {
+  const c = e.code || '';
+  if (c.includes('popup-closed') || c.includes('cancelled-popup')) return '';
+  if (c.includes('unauthorized-domain')) return '這個網址還沒加入 Firebase 的授權網域。';
+  if (c.includes('network')) return '網路連線失敗，請稍後再試。';
+  return '登入失敗：' + (e.message || c);
+}
+
+$('loginBtn').onclick = async () => {
+  $('loginBtn').disabled = true;
+  setStatus($('loginErr'), '');
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (e) {
+    // 有些手機瀏覽器擋彈出視窗，改用整頁跳轉登入
+    if ((e.code || '').includes('popup-blocked') || (e.code || '').includes('operation-not-supported')) {
+      try { await signInWithRedirect(auth, provider); return; } catch (e2) { e = e2; }
+    }
+    setStatus($('loginErr'), loginErrMsg(e), true);
+  }
+  $('loginBtn').disabled = false;
+};
+getRedirectResult(auth).catch(e => setStatus($('loginErr'), loginErrMsg(e), true));
+
+$('logoutBtn').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  $('bootStatus').hidden = true;
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  items = [];
+  if (!user) {
+    store = null;
+    $('appView').hidden = true;
+    $('loginView').hidden = false;
+    return;
+  }
+  $('loginView').hidden = true;
+  $('appView').hidden = false;
+  $('userName').textContent = user.displayName || user.email || '';
+  $('avatar').hidden = !user.photoURL;
+  if (user.photoURL) $('avatar').src = user.photoURL;
+
+  store = cloudStore(user.uid);
+  let first = true;
+  unsubscribe = store.subscribe(list => {
+    items = list;
+    if (first) { first = false; setStatus($('status'), ''); }
+    render();
+  }, err => setStatus($('status'), '讀取失敗：' + (err.message || err.code) + '，請重新整理頁面。', true));
+});
+
+/* ---------- 畫面 ---------- */
+function fmtDate(t) { const d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate(); }
+
+function row(it) {
+  const li = document.createElement('li');
+  li.dataset.id = it.id;
+  if (it.done) li.className = 'done';
+
+  const chk = document.createElement('button');
+  chk.className = 'chk';
+  chk.title = it.done ? '標為未完成' : '標為完成';
+  chk.innerHTML = CHECK;
+  chk.onclick = () => write(store.update(it.id, { done: !it.done, updated: Date.now() }));
+
+  const span = document.createElement('span');
+  span.className = 'text';
+  span.textContent = it.text;
+  span.title = '點一下編輯';
+  span.onclick = () => startEdit(li, span, it);
+
+  const date = document.createElement('span');
+  date.className = 'date';
+  date.textContent = fmtDate(it.created);
+
+  const del = document.createElement('button');
+  del.className = 'del';
+  del.title = '刪除';
+  del.innerHTML = TRASH;
+  del.onclick = () => removeItem(it);
+
+  li.append(chk, span, date, del);
+  return li;
+}
+
+function render() {
+  if (editingId) return;
+  const active = items.filter(x => !x.done).sort((a, b) => a.created - b.created);
+  const done = items.filter(x => x.done).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+
+  $('active').replaceChildren(...active.map(row));
+  $('done').replaceChildren(...done.map(row));
+  $('empty').hidden = active.length > 0;
+  $('empty').textContent = items.length && !active.length ? '全部完成了 🎉' : '沒有待辦事項，在下面新增一個吧';
+
+  $('doneBlock').hidden = !done.length;
+  $('doneCount').textContent = '(' + done.length + ')';
+  $('done').parentElement.hidden = !showDone;
+  $('toggleDone').classList.toggle('closed', !showDone);
+
+  $('count').textContent = done.length + ' / ' + items.length + ' 完成';
+  $('fill').style.transform = 'scaleX(' + (items.length ? done.length / items.length : 0) + ')';
+}
+
+function startEdit(li, span, it) {
+  editingId = it.id;
+  const ed = document.createElement('input');
+  ed.className = 'edit';
+  ed.value = it.text;
+  ed.enterKeyHint = 'done';
+  let finished = false;
+  const finish = (commit) => {
+    if (finished) return;
+    finished = true;
+    editingId = null;
+    const v = ed.value.trim();
+    if (commit && v && v !== it.text) {
+      it.text = v;
+      write(store.update(it.id, { text: v, updated: Date.now() }));
+    }
+    render();
+  };
+  ed.onkeydown = (e) => {
+    if (e.isComposing) return; // 注音選字中的 Enter 不算送出
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') finish(false);
+  };
+  ed.onblur = () => finish(true);
+  li.replaceChild(ed, span);
+  ed.focus();
+  ed.setSelectionRange(ed.value.length, ed.value.length);
+}
+
+/* ---------- 動作 ---------- */
+function write(p) {
+  return Promise.resolve(p).catch(e => toast('儲存失敗：' + (e.message || e.code || e)));
+}
+
+let toastTimer;
+function toast(msg, undo) {
+  $('toastMsg').textContent = msg;
+  $('toastBtn').hidden = !undo;
+  $('toastBtn').onclick = () => { $('toast').hidden = true; undo(); };
+  $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').hidden = true, undo ? 5000 : 2500);
+}
+
+function removeItem(it) {
+  const { id, ...data } = it;
+  write(store.remove(id));
+  toast('已刪除「' + (it.text.length > 12 ? it.text.slice(0, 12) + '…' : it.text) + '」', () => write(store.set(id, data)));
+}
+
+$('clearDone').onclick = () => {
+  const done = items.filter(x => x.done);
+  if (!done.length) return;
+  done.forEach(x => write(store.remove(x.id)));
+  toast('已清除 ' + done.length + ' 個已完成項目', () => done.forEach(({ id, ...data }) => write(store.set(id, data))));
+};
+
+$('toggleDone').onclick = () => {
+  showDone = !showDone;
+  try { localStorage.setItem('todo-show-done', showDone ? '1' : '0'); } catch (e) {}
+  render();
+};
+
+$('newItem').addEventListener('input', () => { $('addBtn').disabled = !$('newItem').value.trim(); });
+$('newItem').addEventListener('keydown', (e) => { if (e.isComposing && e.key === 'Enter') e.preventDefault(); });
+$('form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = $('newItem').value.trim();
+  if (!v || !store) return;
+  const now = Date.now();
+  write(store.add({ text: v, done: false, created: now, updated: now }));
+  $('newItem').value = '';
+  $('addBtn').disabled = true;
+  $('newItem').focus();
+});
+
+const d = new Date();
+$('today').textContent = d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate() + '（' + WK[d.getDay()] + '）';
+try { showDone = localStorage.getItem('todo-show-done') !== '0'; } catch (e) {}
+</script>
+</body>
+</html>
